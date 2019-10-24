@@ -130,11 +130,10 @@ class ColoredFile:
 
 #############################################################################
 
-def merge_colored_files(cf1: ColoredFile, cf2: ColoredFile) -> None:
+def merge_colored_files(c_files: List[ColoredFile]) -> None:
     """
     Merge the colored versions of the files and place them side by side.
     """
-    assert len(cf1.lines) == len(cf2.lines)
     #
     width = helper.get_terminal_width()
     line = [helper.CHAR_HORIZONTAL_LINE] * width
@@ -145,12 +144,27 @@ def merge_colored_files(cf1: ColoredFile, cf2: ColoredFile) -> None:
                                 nc=helper.NO_COLOR)
     sys.stdout.write(hr)
     #
-    for l1, l2 in zip(cf1.lines, cf2.lines):
-        sys.stdout.write(l1)
-        sys.stdout.write("{c}{char}{nc}".format(c=helper.FRAME_COLOR,
-                                                char=helper.CHAR_VERTICAL_LINE,
-                                                nc=helper.NO_COLOR))
-        print(l2)
+    if len(c_files)%2 != 0:
+        c_files.append(None)
+
+    it = iter(c_files)
+    for cf1, cf2 in zip(it, it):
+        print(hr)
+        try:
+            for l1, l2 in zip(cf1.lines, cf2.lines):
+                sys.stdout.write(l1)
+                sys.stdout.write("{c}{char}{nc}".format(c=helper.FRAME_COLOR,
+                                                        char=helper.CHAR_VERTICAL_LINE,
+                                                        nc=helper.NO_COLOR))
+                print(l2)
+        except:
+            for l in cf1.lines:
+                sys.stdout.write(l)
+                sys.stdout.write("{c}{char}{nc}".format(c=helper.FRAME_COLOR,
+                                                        char=helper.CHAR_VERTICAL_LINE,
+                                                        nc=helper.NO_COLOR))
+                print()
+
     #
     line[idx] = helper.CHAR_T_UP
     hr = "{c}{line}{nc}".format(c=helper.FRAME_COLOR,
@@ -159,19 +173,20 @@ def merge_colored_files(cf1: ColoredFile, cf2: ColoredFile) -> None:
     print(hr)
 
 
-def make_equal_long(pf1: PlainFile, pf2: PlainFile) -> None:
+def make_equal_long(plain_files: List[PlainFile]) -> None:
     """
     The two files must have the same number of lines.
 
     If one of them is shorter, then fill it up with
     blank lines.
     """
-    maxi = max([pf1.get_number_of_lines(), pf2.get_number_of_lines()])
-    pf1.add_extra_lines(maxi)
-    pf2.add_extra_lines(maxi)
+    maxi = max([pf.get_number_of_lines() for pf in plain_files])
+
+    for pf in plain_files:
+        pf.add_extra_lines(maxi)
 
 
-def check_command_line_args(argv: List[str]) -> Tuple[str, str, Dict[str, Any]]:
+def check_command_line_args(argv: List[str]) -> Tuple[List[str], Dict[str, Any]]:
     """
     Treat the command-line arguments.
     """
@@ -186,12 +201,12 @@ def check_command_line_args(argv: List[str]) -> Tuple[str, str, Dict[str, Any]]:
         docs.show_help()
         sys.exit(0)
 
-    if len(args) != 2:
-        print("Error: provide two input files / use valid options", file=sys.stderr)
+    if len(args) < 2:
+        print("Error: provide at least two input files / use valid options", file=sys.stderr)
         sys.exit(1)
     # else
-    fname1, fname2 = args
-    return fname1, fname2, options
+    fnames = args
+    return fnames, options
 
 ##############################################################################
 
@@ -212,30 +227,34 @@ def main(argv: List[str]) -> None:
     check_if_bat_exists()
     # if bat is available:
 
-    fname1, fname2, options = check_command_line_args(argv)
+    fnames, options = check_command_line_args(argv)
 
     tmp_dir_path = tempfile.mkdtemp()
     atexit.register(shutil.rmtree, tmp_dir_path)
 
-    pf1 = PlainFile(fname1, tmp_dir_path, cfg.LEFT_SIDE)
-    pf1.read()
-    pf2 = PlainFile(fname2, tmp_dir_path, cfg.RIGHT_SIDE)
-    pf2.read()
-    make_equal_long(pf1, pf2)
+    plain_files = []
+    colored_files = []
 
-    pf1.save_as_tmp()
-    pf2.save_as_tmp()
+    for index, f in enumerate(fnames):
+        if index%2 == 0:
+            pf = PlainFile(f, tmp_dir_path, cfg.LEFT_SIDE)
+        # else
+        pf = PlainFile(f, tmp_dir_path, cfg.RIGHT_SIDE)
+        pf.read()
 
-    cf1 = ColoredFile(pf1, options)
-    cf1.save_file()
+        plain_files.append(pf)
 
-    cf2 = ColoredFile(pf2, options)
-    cf2.save_file()
+    make_equal_long(plain_files)
 
-    cf1.pad_lines_on_right()
-    cf2.pad_lines_on_right()
+    for pf in plain_files:
+        pf.save_as_tmp()
 
-    merge_colored_files(cf1, cf2)
+        cf = ColoredFile(pf, options)
+        cf.save_file()
+        cf.pad_lines_on_right()
+        colored_files.append(cf)
+
+    merge_colored_files(colored_files)
 
 ##############################################################################
 
