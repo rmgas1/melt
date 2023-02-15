@@ -51,11 +51,16 @@ def get_terminal_width(half=False, panel: int = cfg.LEFT_SIDE) -> int:
     # The following line does not work on macOS/iTerm as get_simple_cmd_output
     # starts a new process (shell) and the LINES and COLUMNS interactive
     # variables are not passed through. This could be semi-resolved by
-    # exporting the variables, but they would be set to the window size at the
-    # time, obviously not ideal. Instead, we call this melt via an alias and
-    # then we can get the environment variable we passed in.
+    # exporting the variables once, but they would be set to the window size
+    # at the time, obviously not ideal. Instead, we call melt via an a
+    # function then we can get the environment variable we passed in.
     #
-    # alias melt='COLUMNS=$COLUMNS python3 /Users/YOU/some/path/melt/start.py'
+    # in ~/.zshrc
+    # # add ability to display nicely coloured files in two columns
+    # melt() {
+    #     eval resize
+    #     COLUMNS=$COLUMNS python3 /Users/you/some/path/melt/start.py $*
+    # }
     #
     # full_width = int(get_simple_cmd_output("tput cols"))
     full_width = int(os.environ.get('COLUMNS'))
